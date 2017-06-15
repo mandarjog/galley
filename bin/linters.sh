@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -e
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -104,14 +105,14 @@ go_metalinter() {
 }
 
 
-
 run_linters() {
     echo Running linters
+    buildifier -showlog -mode=check $(find . -name BUILD -type f)
     go_metalinter
-    ${BIN_PATH}/check_license.sh
-    buildifier -showlog -mode=check $(git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e '.*\.bazel' -e '.*\.bzl')
+    $BIN_PATH/check_license.sh
+    $BIN_PATH/check_workspace.sh
 
-    # TODO: Enable this once more of mixer is connected and we don't
+    # TODO: Enable this once more of Galley is connected and we don't
     # have dead code on purpose
     # codecoroner funcs ./...
     # codecoroner idents ./...

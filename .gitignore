@@ -1,14 +1,56 @@
-# Binaries for programs and plugins
-*.exe
-*.dll
+coverage.txt
+*.swp
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
 *.so
-*.dylib
+*.pb.go
+*.pb.cc
+*.pb.h
 
-# Test binary, build with `go test -c`
+# Folders
+_obj
+_test
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+*.exe
 *.test
+*.prof
+_builds
+_projects
+_steps
+bin
+.DS_Store
+_builds/
+_projects/
+coverage.out
+.project
+.settings/*
+.externalToolBuilders/*
+vendor
+vendor/*
+dep-prep
+*.pyc
+.cache/*
+__pycache__/*
+.cache
+.cover/*
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
+CMakeLists.txt
+
+# key file
+istio-testing.json
 
 # Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
 .glide/
