@@ -27,6 +27,16 @@ cpp_proto_repositories()
 
 gogo_proto_repositories()
 
+git_repository(
+    name = "io_bazel_rules_docker",
+    remote = "https://github.com/bazelbuild/rules_docker.git",
+    commit = "d0cf5ea34a6f900370b91227b95e9f0a13722c70", # June 22 2017
+)
+
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
+
+docker_repositories()
+
 new_go_repository(
     name = "com_github_golang_glog",
     commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",  # Jan 26, 2016 (no releases)
