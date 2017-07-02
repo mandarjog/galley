@@ -52,8 +52,8 @@ message WatchCreateRequest {
   // indicates the watched subtree.
   string path = 1;
 
-  // config 'kinds' to watch.
-  repeated string kinds = 2;
+  // config 'types' to watch.
+  repeated string types = 2;
 
   // start watching from this revision of the repository.
   // If the requested revision is not available, the watch request should fail.
