@@ -1,0 +1,74 @@
+// Copyright 2017 Istio Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.galley.v1;
+
+import "google/rpc/status.proto";
+import "google/api/annotations.proto";
+
+import "galley/v1/service.proto";
+
+// ValidatorAndTransformer service validates objects before they are committed to storage.
+// Galley maintains a map of object_types to validators. A single validator may validate many types.
+// For example MixerValidator service should validate all Mixer resources.
+service ValidatorAndTransformer {
+  // Validate the resource and convert it to typed proto if applicable
+  // if Object.spec is specified, it should be converted to an appropriate proto representation.
+  // Every attempt should be made to do a deep validation.
+  // If full validation requires referential integrity checks, this service should use the
+  // GalleyWatch Service to maintain current view of the configuration.
+  //
+  // For example a Mixer rule consists of a selector expression and a named handler amongst other things. 
+  // Mixer validator should check 
+  // 1. expression syntax is valid
+  // 2. expression uses known attributes
+  // 3. Rule refers to a known handler
+  // 4. Any other semantic check that is required for full validation.
+  //
+  // It should convert the untyped proto into a typed proto and return binary encoding of it in Object.processed_spec.
+  // 
+  // On validation failure, it should return a validation error with text.
+  rpc ValidateAndTransform(ValidationRequest) returns (ValidationResponse) {
+    option (google.api.http) = {
+      post: "/resources/v1:validate"
+      body: "*"
+    };
+  };
+};
+
+message ValidationRequest {
+  // Supports multiple ordered changes to be validated together.
+  // When a large config is pushed into Galley, batching
+  // validation requests is an optimization.
+  repeated ChangeEvent validations = 1;
+
+  // Objects should be validated against this revision of the repository.
+  // If the validator or the object is agnostic to repository versions, this can be ignored.
+  // This is useful for referential integrity checking. 
+  int64 validation_revision = 2;
+}
+
+message ValidationResponse {
+  // result of the operation
+  // if status == INVALID_ARGUMENT
+  // check errors for details.
+  google.rpc.Status status = 1; 
+
+  // state of the file after transformation.
+  ConfigFile file = 2;
+
+  // errors if status = INVALID_ARGUMENT
+  repeated ValidationError validation_errors = 3;
+}

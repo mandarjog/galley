@@ -1,0 +1,265 @@
+// Copyright 2017 Istio Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.galley.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+import "google/rpc/status.proto";
+
+// Galley uses a hierarchical resource model.
+//
+// Directories are organizational units that can be protected by ACLs.
+// ACLs are enforced and managed externally.
+//
+// Every directory contains a mapping that maps it's subdirectories
+// to a subdomain. The subdomains are expressed in reverse dns notation
+// like java package names. ex: com.google 
+//
+// A directory has one or more config files with a .yaml extension.
+// A directory is a special file without the .yaml extension and with no content.
+// Galley understands the mapping between config "kinds" and the components
+// that process them.
+service Galley {
+  // Get a config file (or directory).
+  rpc GetConfigFile(GetConfigFileRequest) returns (ConfigFile) {
+    option (google.api.http) = {
+      get: "/v1/{path=**}"
+    };
+  };
+
+  // Delete a config file (or directory).
+  rpc DeleteConfigFile(DeleteConfigFileRequest) returns (DeleteConfigFileResponse) {
+    option (google.api.http) = {
+      delete: "/v1/{path=**}"
+    };
+  };
+
+  // List config files.
+	// A note on http mapping.
+	// google.api.http permits the multi segment match '**' operator as the last match only, 
+	// except when :VERB is used. Here we use :list verb to disambiguate between
+	// GET on a file and GET on a directory.
+  rpc ListConfigFiles(ListConfigFilesRequest) returns (ListConfigFilesResponse) {
+    option (google.api.http) = {
+      get: "/v1/{path=**}:list"
+    };
+  }
+
+  // Create a config file (or directory).
+  rpc CreateConfigFile(UpdateConfigFileRequest) returns (UpdateConfigFileResponse) {
+    option (google.api.http) = {
+      post: "/v1/{path=**}"
+      body: "file"
+    };
+  };
+
+  // Update a config file (or directory).
+  rpc UpdateConfigFile(UpdateConfigFileRequest) returns (UpdateConfigFileResponse) {
+    option (google.api.http) = {
+      put: "/v1/{path=**}"
+      body: "file"
+    };
+  };
+}
+
+message UpdateConfigFileRequest {
+   // path of the entry from root.
+  string path = 1;
+
+  // config file if the path refers to a file.
+  ConfigFile file = 2;
+}
+
+// UpdateConfigFileResponse is returned when an attempt is made to update a file.
+// ADD or UPDATE operations.
+message UpdateConfigFileResponse {
+  // result of the operation
+  // if status == INVALID_ARGUMENT
+  // check errors for details.
+  google.rpc.Status status = 1; 
+
+  // config file after the change.
+  ConfigFile file = 2;
+
+  // errors if st
+  repeated ValidationError validation_errors = 3;
+}
+
+// DeleteConfigFileResponse is returned when an attempt is made to delete a file.
+message DeleteConfigFileResponse {
+  // result of the operation
+  // if status == INVALID_ARGUMENT
+  // check errors for details.
+  google.rpc.Status status = 1; 
+
+  repeated ValidationError validation_errors = 2;
+}
+
+message ValidationError {
+  // The key of the object where error was detected.
+  // This may not be the object that introduced the error.
+  string key = 1;
+  // The primary field that was in error, if available.
+  string field = 2;
+  // The line number on which error occurred, if available.
+  int32 line_number = 3;
+  // Textual error message.
+  string error = 4;
+}
+
+// Contains path and
+// an optional ConfigFile on available if this entry is not a ConfigNode.
+message ConfigEntry{
+  // path of the entry from root.
+  string path = 1;
+
+  // config file.
+  ConfigFile file = 2;
+}
+
+message ListConfigFilesResponse{
+  // if include_data is specified, this includes the file.
+  repeated ConfigEntry entries = 1;
+
+  // If next_page_token is not empty, this is a paged result.
+  // use this value in the next request.
+  string next_page_token = 2;
+}
+
+message ListConfigFilesRequest{
+  // path of the directory from root.
+  string path = 1;
+
+  // recurse thru the hierarchy. 
+  bool recurse = 2;
+
+  // include data along with keys.
+  bool include_data = 3;
+
+  // paged result, set to empty on first page.
+  string page_token = 4;
+
+  // If non zero, response should have at most these number of entries.
+  int32 max_page_size = 5;
+}
+
+message GetConfigFileRequest{
+  // path of the config file from root.
+  string path = 1; 
+}
+
+message DeleteConfigFileRequest{
+  // path of the config file from root.
+  string path = 1; 
+}
+
+// A configuration file stored at a location.
+// A file must have a *.yaml extension.
+// A config file consists of ConfigOjects organized in named ObjectCollections.
+// Object collections provide organizational aid to the file author.
+// ConfigFile also represents a directory if the name does not have a *.yaml extension.
+// A directory contains no data.
+message ConfigFile{
+  // metadata associated with the file. Optional.
+  Metadata metadata = 1;
+
+  // metadata assigned by the server. Cannot be changed by the client.
+  ServerMetadata serverMetadata =  2;
+  
+  repeated ConfigObjectCollection config = 3;
+}
+
+// The basic atom of configuration as understood 
+// by Istio components
+message ConfigObject{
+  // metrics, route-rule are config “kinds”. Required.
+  string kind = 1;
+
+  // name of the object collection.
+  string name = 2;
+
+  // metadata about the object
+  Metadata metadata = 3;
+
+  // spec is 'kind' specific configuration specified in json / yaml format.
+  // This contains everything that was submitted by the user.
+  // spec is validated by Validators.
+  google.protobuf.Struct spec = 4;
+
+  // processed_spec is the binary encoded protobuf.
+  // For example:
+  // If `spec` contains an expressions in text form 
+  // `processed_spec` may contain a parsed AST or an optimized
+  // expression.
+  // It is up to the component performing validation and
+  // transformation to make use of this field.
+  bytes processed_spec = 5; 
+}
+
+// ConfigObjectCollection is an arbitrary operator specified
+// partitioning of the ConfigObjests.
+message ConfigObjectCollection{
+  // name of the object collection.
+  string name = 1;
+
+  // metadata about the collection.
+  Metadata metadata = 2;
+
+  repeated ConfigObject objects = 3;
+}
+
+message Metadata {
+  // arbitrary labels.
+  map<string, string> labels = 1;
+}
+
+message ServerMetadata {
+  // revision of the repository, the last time File was updated.
+  // assgined by the server.
+  int64 revision = 1;
+
+  // uuid assigned to the file. Only used when a new file is created 
+  // in the same place as before.
+  string uuid = 2;
+
+  // Effective scope computed at the server.
+  // scope is computed using mappings.yml available in every directory.
+  string effective_scope = 3;
+}
+
+// A change to the galley config store.
+message ChangeEvent {
+  enum EventType {
+    PUT = 0;  // ADD and UPDATE
+    DELETE = 1;
+  }
+  // type is the kind of event. If type is a PUT, it indicates
+  // new data has been stored to the key. If type is a DELETE,
+  // it indicates the key was deleted.
+  EventType type = 1;
+
+  // The location associated with this value.
+  // This may be used to compare for equality but cannot be otherwise interpreted.
+  string path = 2;
+
+  // A PUT event contains current value.
+  // A DELETE event contains the deleted key with
+  // its modification revision set to the revision of deletion.
+  ConfigFile value = 3;
+
+  // value before the operation was done. Optional.
+  ConfigFile prev_value = 4;
+}
