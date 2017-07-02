@@ -52,6 +52,9 @@ message ValidationRequest {
   // Supports multiple ordered changes to be validated together.
   // When a large config is pushed into Galley, batching
   // validation requests is an optimization.
+  // Validator has access to file.serverMetadata.Subdomains
+  // Validator must ensure that the configuration in the file
+  // only pertains to those subdomains.
   repeated ChangeEvent validations = 1;
 
   // Objects should be validated against this revision of the repository.
@@ -67,7 +70,7 @@ message ValidationResponse {
   google.rpc.Status status = 1; 
 
   // state of the file after transformation.
-  ConfigFile file = 2;
+  File file = 2;
 
   // errors if status = INVALID_ARGUMENT
   repeated ValidationError validation_errors = 3;

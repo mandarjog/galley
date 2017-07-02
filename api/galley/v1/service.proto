@@ -30,36 +30,36 @@ import "google/rpc/status.proto";
 //
 // A directory has one or more config files with a .yaml extension.
 // A directory is a special file without the .yaml extension and with no content.
-// Galley understands the mapping between config "kinds" and the components
+// Galley understands the mapping between config "types" and the components
 // that process them.
 service Galley {
   // Get a config file (or directory).
-  rpc GetConfigFile(GetConfigFileRequest) returns (ConfigFile) {
+  rpc GetFile(GetFileRequest) returns (File) {
     option (google.api.http) = {
       get: "/v1/{path=**}"
     };
   };
 
   // Delete a config file (or directory).
-  rpc DeleteConfigFile(DeleteConfigFileRequest) returns (DeleteConfigFileResponse) {
+  rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse) {
     option (google.api.http) = {
       delete: "/v1/{path=**}"
     };
   };
 
   // List config files.
-	// A note on http mapping.
-	// google.api.http permits the multi segment match '**' operator as the last match only, 
-	// except when :VERB is used. Here we use :list verb to disambiguate between
-	// GET on a file and GET on a directory.
-  rpc ListConfigFiles(ListConfigFilesRequest) returns (ListConfigFilesResponse) {
+  // A note on http mapping.
+  // google.api.http permits the multi segment match '**' operator as the last match only, 
+  // except when :VERB is used. Here we use :list verb to disambiguate between
+  // GET on a file and GET on a directory.
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {
     option (google.api.http) = {
       get: "/v1/{path=**}:list"
     };
   }
 
   // Create a config file (or directory).
-  rpc CreateConfigFile(UpdateConfigFileRequest) returns (UpdateConfigFileResponse) {
+  rpc CreateFile(UpdateFileRequest) returns (UpdateFileResponse) {
     option (google.api.http) = {
       post: "/v1/{path=**}"
       body: "file"
@@ -67,7 +67,7 @@ service Galley {
   };
 
   // Update a config file (or directory).
-  rpc UpdateConfigFile(UpdateConfigFileRequest) returns (UpdateConfigFileResponse) {
+  rpc UpdateFile(UpdateFileRequest) returns (UpdateFileResponse) {
     option (google.api.http) = {
       put: "/v1/{path=**}"
       body: "file"
@@ -75,31 +75,31 @@ service Galley {
   };
 }
 
-message UpdateConfigFileRequest {
+message UpdateFileRequest {
    // path of the entry from root.
   string path = 1;
 
   // config file if the path refers to a file.
-  ConfigFile file = 2;
+  File file = 2;
 }
 
-// UpdateConfigFileResponse is returned when an attempt is made to update a file.
+// UpdateFileResponse is returned when an attempt is made to update a file.
 // ADD or UPDATE operations.
-message UpdateConfigFileResponse {
+message UpdateFileResponse {
   // result of the operation
   // if status == INVALID_ARGUMENT
   // check errors for details.
   google.rpc.Status status = 1; 
 
   // config file after the change.
-  ConfigFile file = 2;
+  File file = 2;
 
   // errors if st
   repeated ValidationError validation_errors = 3;
 }
 
-// DeleteConfigFileResponse is returned when an attempt is made to delete a file.
-message DeleteConfigFileResponse {
+// DeleteFileResponse is returned when an attempt is made to delete a file.
+message DeleteFileResponse {
   // result of the operation
   // if status == INVALID_ARGUMENT
   // check errors for details.
@@ -121,16 +121,16 @@ message ValidationError {
 }
 
 // Contains path and
-// an optional ConfigFile on available if this entry is not a ConfigNode.
+// an optional File on available if this entry is not a ConfigNode.
 message ConfigEntry{
   // path of the entry from root.
   string path = 1;
 
   // config file.
-  ConfigFile file = 2;
+  File file = 2;
 }
 
-message ListConfigFilesResponse{
+message ListFilesResponse{
   // if include_data is specified, this includes the file.
   repeated ConfigEntry entries = 1;
 
@@ -139,7 +139,7 @@ message ListConfigFilesResponse{
   string next_page_token = 2;
 }
 
-message ListConfigFilesRequest{
+message ListFilesRequest{
   // path of the directory from root.
   string path = 1;
 
@@ -156,12 +156,12 @@ message ListConfigFilesRequest{
   int32 max_page_size = 5;
 }
 
-message GetConfigFileRequest{
+message GetFileRequest{
   // path of the config file from root.
   string path = 1; 
 }
 
-message DeleteConfigFileRequest{
+message DeleteFileRequest{
   // path of the config file from root.
   string path = 1; 
 }
@@ -170,9 +170,9 @@ message DeleteConfigFileRequest{
 // A file must have a *.yaml extension.
 // A config file consists of ConfigOjects organized in named ObjectCollections.
 // Object collections provide organizational aid to the file author.
-// ConfigFile also represents a directory if the name does not have a *.yaml extension.
+// File also represents a directory if the name does not have a *.yaml extension.
 // A directory contains no data.
-message ConfigFile{
+message File{
   // metadata associated with the file. Optional.
   Metadata metadata = 1;
 
@@ -185,8 +185,8 @@ message ConfigFile{
 // The basic atom of configuration as understood 
 // by Istio components
 message ConfigObject{
-  // metrics, route-rule are config “kinds”. Required.
-  string kind = 1;
+  // metrics, route-rule are config “types”. Required.
+  string type = 1;
 
   // name of the object collection.
   string name = 2;
@@ -194,7 +194,7 @@ message ConfigObject{
   // metadata about the object
   Metadata metadata = 3;
 
-  // spec is 'kind' specific configuration specified in json / yaml format.
+  // spec is 'type' specific configuration specified in json / yaml format.
   // This contains everything that was submitted by the user.
   // spec is validated by Validators.
   google.protobuf.Struct spec = 4;
@@ -235,9 +235,9 @@ message ServerMetadata {
   // in the same place as before.
   string uuid = 2;
 
-  // Effective scope computed at the server.
-  // scope is computed using mappings.yml available in every directory.
-  string effective_scope = 3;
+  // Effective subdomain computed at the server.
+  // subdomain is computed using the optional mappings.yml in the directory.
+  Subdomains effective_subdomains = 3;
 }
 
 // A change to the galley config store.
@@ -246,7 +246,7 @@ message ChangeEvent {
     PUT = 0;  // ADD and UPDATE
     DELETE = 1;
   }
-  // type is the kind of event. If type is a PUT, it indicates
+  // If type is a PUT, it indicates that
   // new data has been stored to the key. If type is a DELETE,
   // it indicates the key was deleted.
   EventType type = 1;
@@ -258,8 +258,24 @@ message ChangeEvent {
   // A PUT event contains current value.
   // A DELETE event contains the deleted key with
   // its modification revision set to the revision of deletion.
-  ConfigFile value = 3;
+  File value = 3;
 
   // value before the operation was done. Optional.
-  ConfigFile prev_value = 4;
+  File prev_value = 4;
+}
+
+// DomainMap specifies how to compute the effective subdomain of a directory
+message DomainMap {
+  // asserted subdomains of this directory
+  // "/" is allowed to assert anything
+  // All other directories may only assert what is permitted by the parent.
+  repeated string self = 1;
+
+  // map a subdirectory to a set of permitted subdomains. 
+  map<string, Subdomains> mapping = 2; 
+
+}
+
+message Subdomains {
+  repeated string subdomains = 1;
 }
