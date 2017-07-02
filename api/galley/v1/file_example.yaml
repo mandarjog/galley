@@ -1,0 +1,61 @@
+metadata:
+  labels:
+    name: myserviceconfig
+config:
+  - name: metric-rq
+    objects:
+    - type: constructor
+      name: request_count
+      spec:
+        value: request.size
+        labels:
+          service: target.service
+          dc: target.data_center
+    - type: handler
+      name: mystatsd
+      spec:
+        impl: istio.io/statsd
+        params:
+          host: statshost.FQDN
+          port: 9080
+    - type: rule
+      spec:
+        selector: target.service == "service1.FQDN"
+        handler: $mystatsd
+        instances:
+        - $request_count
+
+  - name: denychecker
+    objects:
+    - type: constructor
+      name: deny_source_ip
+      spec:
+        value: request.source_ip
+    - type: rule
+      spec:
+        selector: target.service == "service1.FQDN" && source.labels["app"] != "billing"
+        handler: $mesh.denyhandler
+        instances:
+        - $deny_source_ip
+
+  - name: svc1-rules
+    objects:
+    - type: route-rule
+      spec:
+        destination: service1.FQDN
+        route:
+        - tags:
+            version: v1
+          weight: 90
+        - tags:
+            version: v2
+          weight: 10
+
+  - name: mapping
+    objects:
+    - type: mapping
+      spec:
+        self: ["com.acme"]
+        mapping:
+          dept1: 
+            subdomains: ["com.acme.dept1"]
