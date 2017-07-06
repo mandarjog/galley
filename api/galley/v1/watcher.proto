@@ -18,7 +18,7 @@ package istio.galley.v1;
 import "google/rpc/status.proto";
 import "google/api/annotations.proto";
 
-import "galley/v1/service.proto";
+import "api/galley/v1/config_object.proto";
 
 // Galley Watcher service is designed to efficiently watch mutiple subtrees of the resource tree.
 service Watcher { 
@@ -82,7 +82,7 @@ message WatchCreated {
 // WatchEvents indicates that this message contains events from the watch stream.
 message WatchEvents {
   // returns events for the specified watch id. 
-  repeated ChangeEvent events = 4;
+  repeated ConfigChange events = 4;
 }
 
 // WatchProgress message is sent periodically.
@@ -123,8 +123,14 @@ message WatchResponse {
   };
 };
 
+message ConfigFileKV {
+  string uid = 1;
+  ConfigFile file = 2;
+}
+
 message InitialState {
-  repeated ConfigEntry entries = 1;
+  
+  repeated ConfigFileKV entries = 1;
 
   // Last message from the initial state.
   // If done = true, watch events will start streaming next.

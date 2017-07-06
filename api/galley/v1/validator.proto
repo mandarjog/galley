@@ -18,7 +18,8 @@ package istio.galley.v1;
 import "google/rpc/status.proto";
 import "google/api/annotations.proto";
 
-import "galley/v1/service.proto";
+import "api/galley/v1/config_object.proto";
+import "api/galley/v1/validation_error.proto";
 
 // ValidatorAndTransformer service validates objects before they are committed to storage.
 // Galley maintains a map of object_types to validators. A single validator may validate many types.
@@ -49,13 +50,10 @@ service ValidatorAndTransformer {
 };
 
 message ValidationRequest {
-  // Supports multiple ordered changes to be validated together.
-  // When a large config is pushed into Galley, batching
-  // validation requests is an optimization.
-  // Validator has access to file.serverMetadata.Subdomains
+  // Validator has access to file.scope.
   // Validator must ensure that the configuration in the file
-  // only pertains to those subdomains.
-  repeated ChangeEvent validations = 1;
+  // only pertains to its scope.
+  ConfigChange validation = 1;
 
   // Objects should be validated against this revision of the repository.
   // If the validator or the object is agnostic to repository versions, this can be ignored.
@@ -70,7 +68,7 @@ message ValidationResponse {
   google.rpc.Status status = 1; 
 
   // state of the file after transformation.
-  File file = 2;
+  ConfigFile file = 2;
 
   // errors if status = INVALID_ARGUMENT
   repeated ValidationError validation_errors = 3;

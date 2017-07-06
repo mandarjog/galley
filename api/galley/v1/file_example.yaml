@@ -51,11 +51,4 @@ config:
             version: v2
           weight: 10
 
-  - name: mapping
-    objects:
-    - type: mapping
-      spec:
-        self: ["com.acme"]
-        mapping:
-          dept1: 
-            subdomains: ["com.acme.dept1"]
+

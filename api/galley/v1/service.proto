@@ -16,8 +16,9 @@ syntax = "proto3";
 package istio.galley.v1;
 
 import "google/api/annotations.proto";
-import "google/protobuf/struct.proto";
-import "google/rpc/status.proto";
+import "google/protobuf/empty.proto";
+
+import "api/galley/v1/metadata.proto";
 
 // Galley uses a hierarchical resource model.
 //
@@ -26,14 +27,17 @@ import "google/rpc/status.proto";
 //
 // Every directory contains a mapping that maps it's subdirectories
 // to a subdomain. The subdomains are expressed in reverse dns notation
-// like java package names. ex: com.google 
+// like java package names. ex: com.google
+// subdomains define a scope that the configuration cannot exceed.
 //
-// A directory has one or more config files with a .yaml extension.
-// A directory is a special file without the .yaml extension and with no content.
+// A directory has one or more config files with a .cfg extension.
+// A directory is a special file without the .cfg extension and with no content.
 // Galley understands the mapping between config "types" and the components
 // that process them.
 service Galley {
-  // Get a config file (or directory).
+  // Get contents of a file (or directory).
+  // Directory has no content so always returns empty.
+  // Get can be used to check the existence of a directory.
   rpc GetFile(GetFileRequest) returns (File) {
     option (google.api.http) = {
       get: "/v1/{path=**}"
@@ -41,7 +45,9 @@ service Galley {
   };
 
   // Delete a config file (or directory).
-  rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse) {
+  // A delete operation may fail validation due to referential integrity checks.
+  // google.rpc.Status.details contains reasons for the failure as ValidationErrors.
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/v1/{path=**}"
     };
@@ -59,7 +65,9 @@ service Galley {
   }
 
   // Create a config file (or directory).
-  rpc CreateFile(UpdateFileRequest) returns (UpdateFileResponse) {
+  // Creation of a config file may fail due to validation errors.
+  // google.rpc.Status.details contains reasons for the failure as ValidationErrors.
+  rpc CreateFile(CreateFileRequest) returns (File) {
     option (google.api.http) = {
       post: "/v1/{path=**}"
       body: "file"
@@ -67,12 +75,23 @@ service Galley {
   };
 
   // Update a config file (or directory).
-  rpc UpdateFile(UpdateFileRequest) returns (UpdateFileResponse) {
+  // May be used to create or update a new file.
+  // Updating a config file may fail due to validation errors.
+  // google.rpc.Status.details contains reasons for the failure as ValidationErrors.
+  rpc UpdateFile(UpdateFileRequest) returns (File) {
     option (google.api.http) = {
       put: "/v1/{path=**}"
       body: "file"
     };
   };
+}
+
+message CreateFileRequest {
+   // path of the entry from root.
+  string path = 1;
+
+  // config file if the path refers to a file.
+  File file = 2;
 }
 
 message UpdateFileRequest {
@@ -83,45 +102,8 @@ message UpdateFileRequest {
   File file = 2;
 }
 
-// UpdateFileResponse is returned when an attempt is made to update a file.
-// ADD or UPDATE operations.
-message UpdateFileResponse {
-  // result of the operation
-  // if status == INVALID_ARGUMENT
-  // check errors for details.
-  google.rpc.Status status = 1; 
-
-  // config file after the change.
-  File file = 2;
-
-  // errors if st
-  repeated ValidationError validation_errors = 3;
-}
-
-// DeleteFileResponse is returned when an attempt is made to delete a file.
-message DeleteFileResponse {
-  // result of the operation
-  // if status == INVALID_ARGUMENT
-  // check errors for details.
-  google.rpc.Status status = 1; 
-
-  repeated ValidationError validation_errors = 2;
-}
-
-message ValidationError {
-  // The key of the object where error was detected.
-  // This may not be the object that introduced the error.
-  string key = 1;
-  // The primary field that was in error, if available.
-  string field = 2;
-  // The line number on which error occurred, if available.
-  int32 line_number = 3;
-  // Textual error message.
-  string error = 4;
-}
-
 // Contains path and
-// an optional File on available if this entry is not a ConfigNode.
+// an optional File available if this entry is not a directory.
 message ConfigEntry{
   // path of the entry from root.
   string path = 1;
@@ -146,7 +128,7 @@ message ListFilesRequest{
   // recurse thru the hierarchy. 
   bool recurse = 2;
 
-  // include data along with keys.
+  // include file contents along with keys.
   bool include_data = 3;
 
   // paged result, set to empty on first page.
@@ -167,115 +149,12 @@ message DeleteFileRequest{
 }
 
 // A configuration file stored at a location.
-// A file must have a *.yaml extension.
-// A config file consists of ConfigOjects organized in named ObjectCollections.
-// Object collections provide organizational aid to the file author.
-// File also represents a directory if the name does not have a *.yaml extension.
+// A file must have a *.cfg extension.
+// File also represents a directory if the name does not have a *.cfg extension.
 // A directory contains no data.
 message File{
-  // metadata associated with the file. Optional.
-  Metadata metadata = 1;
+  bytes contents = 1;
 
   // metadata assigned by the server. Cannot be changed by the client.
   ServerMetadata serverMetadata =  2;
-  
-  repeated ConfigObjectCollection config = 3;
-}
-
-// The basic atom of configuration as understood 
-// by Istio components
-message ConfigObject{
-  // metrics, route-rule are config “types”. Required.
-  string type = 1;
-
-  // name of the object collection.
-  string name = 2;
-
-  // metadata about the object
-  Metadata metadata = 3;
-
-  // spec is 'type' specific configuration specified in json / yaml format.
-  // This contains everything that was submitted by the user.
-  // spec is validated by Validators.
-  google.protobuf.Struct spec = 4;
-
-  // processed_spec is the binary encoded protobuf.
-  // For example:
-  // If `spec` contains an expressions in text form 
-  // `processed_spec` may contain a parsed AST or an optimized
-  // expression.
-  // It is up to the component performing validation and
-  // transformation to make use of this field.
-  bytes processed_spec = 5; 
-}
-
-// ConfigObjectCollection is an arbitrary operator specified
-// partitioning of the ConfigObjests.
-message ConfigObjectCollection{
-  // name of the object collection.
-  string name = 1;
-
-  // metadata about the collection.
-  Metadata metadata = 2;
-
-  repeated ConfigObject objects = 3;
-}
-
-message Metadata {
-  // arbitrary labels.
-  map<string, string> labels = 1;
-}
-
-message ServerMetadata {
-  // revision of the repository, the last time File was updated.
-  // assgined by the server.
-  int64 revision = 1;
-
-  // uuid assigned to the file. Only used when a new file is created 
-  // in the same place as before.
-  string uuid = 2;
-
-  // Effective subdomain computed at the server.
-  // subdomain is computed using the optional mappings.yml in the directory.
-  Subdomains effective_subdomains = 3;
-}
-
-// A change to the galley config store.
-message ChangeEvent {
-  enum EventType {
-    PUT = 0;  // ADD and UPDATE
-    DELETE = 1;
-  }
-  // If type is a PUT, it indicates that
-  // new data has been stored to the key. If type is a DELETE,
-  // it indicates the key was deleted.
-  EventType type = 1;
-
-  // The location associated with this value.
-  // This may be used to compare for equality but cannot be otherwise interpreted.
-  string path = 2;
-
-  // A PUT event contains current value.
-  // A DELETE event contains the deleted key with
-  // its modification revision set to the revision of deletion.
-  File value = 3;
-
-  // value before the operation was done. Optional.
-  File prev_value = 4;
-}
-
-// DomainMap specifies how to compute the effective subdomain of a directory
-message DomainMap {
-  // asserted subdomains of this directory
-  // "/" is allowed to assert anything
-  // All other directories may only assert what is permitted by the parent.
-  repeated string self = 1;
-
-  // map a subdirectory to a set of permitted subdomains. 
-  map<string, Subdomains> mapping = 2; 
-
-}
-
-message Subdomains {
-  repeated string subdomains = 1;
 }

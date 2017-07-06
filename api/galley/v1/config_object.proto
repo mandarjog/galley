@@ -1,0 +1,112 @@
+// Copyright 2017 Istio Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.galley.v1;
+
+import "google/protobuf/struct.proto";
+
+import "api/galley/v1/metadata.proto";
+
+// This file defines the file format used by the Galley file system api.
+
+// A configuration file stored at a location.
+// A file must have a *.cfg extension.
+// A config file consists of ConfigOjects organized in named ObjectCollections.
+// Object collections provide organizational aid to the file author.
+// File also represents a directory if the name does not have a *.cfg extension.
+// A directory contains no data.
+message ConfigFile{
+
+  // The scope this config file applies to.
+  // Every directory may contain files with multiple scopes.
+  // A config file asserts its scope as a dns suffix.
+  // myservice.mydept.acme.com or mydept.acme.com.
+  // A service scope means that the document contains configuration
+  // that is owned by and affects the service. Similarly one level higher scope
+  // like mydept.acme.com may affect self and any of the services contained in that namespace.
+  // All configuration in the file must be contained within the scope.
+  string scope = 1;
+  
+  // metadata associated with the file. Optional.
+  Metadata metadata = 2;
+
+  // metadata assigned by the server. Cannot be changed by the client.
+  ServerMetadata serverMetadata =  3;
+  
+  repeated ConfigObjectCollection config = 4;
+}
+
+// The basic atom of configuration as understood 
+// by Istio components
+message ConfigObject{
+  // metrics, route-rule are config “types”. Required.
+  string type = 1;
+
+  // name of the object.
+  string name = 2;
+
+  // metadata about the object
+  Metadata metadata = 3;
+
+  // spec is 'type' specific configuration specified in json / yaml format.
+  // This contains everything that was submitted by the user.
+  // spec is validated by Validators.
+  google.protobuf.Struct spec = 4;
+
+  // processed_spec is the binary encoded protobuf.
+  // For example:
+  // If `spec` contains an expressions in text form 
+  // `processed_spec` may contain a parsed AST or an optimized
+  // expression.
+  // It is up to the component performing validation and
+  // transformation to make use of this field.
+  bytes processed_spec = 5; 
+}
+
+// ConfigObjectCollection is an arbitrary operator specified
+// partitioning of the ConfigObjests.
+message ConfigObjectCollection{
+  // name of the object collection.
+  string name = 1;
+
+  // metadata about the collection.
+  Metadata metadata = 2;
+
+  repeated ConfigObject objects = 3;
+}
+
+// A change to the galley config store.
+message ConfigChange {
+  enum EventType {
+    PUT = 0;  // ADD and UPDATE
+    DELETE = 1;
+  }
+  // If type is a PUT, it indicates that
+  // new data has been stored to the key. If type is a DELETE,
+  // it indicates the key was deleted.
+  EventType type = 1;
+
+  // Id of the config file that changed.
+  // This may be used to compare for equality but should not be otherwise interpreted.
+  string uid = 2;
+
+  // A PUT event contains current value.
+  // A DELETE event contains the deleted key with
+  // its modification revision set to the revision of deletion.
+  ConfigFile value = 3;
+
+  // value before the operation was done. Optional.
+  ConfigFile prev_value = 4;
+}
