@@ -25,7 +25,7 @@ import "api/galley/v1/metadata.proto";
 // Directories are organizational units that can be protected by ACLs.
 // ACLs are enforced and managed externally.
 //
-// Every directory contains a mapping that maps it's subdirectories
+// Every directory contains a mapping that maps its subdirectories
 // to a subdomain. The subdomains are expressed in reverse dns notation
 // like java package names. ex: com.google
 // subdomains define a scope that the configuration cannot exceed.
@@ -133,6 +133,14 @@ message DeleteFileRequest{
   string path = 1; 
 }
 
+// content type of a file when it is
+// sent by the client.
+enum ContentType{
+  JSON = 0;
+  YAML = 1;
+  PROTO_TEXT = 2;
+}
+
 // A configuration file stored at a location.
 // A file must have a *.cfg extension.
 // File also represents a directory if the name does not have a *.cfg extension.
@@ -143,6 +151,8 @@ message File{
   // contents are modified by Galley, so a roundtrip may not yeild the same results.
   bytes contents = 2;
 
+  ContentType content_type = 3;
+
   // metadata assigned by the server. Cannot be changed by the client.
-  ServerMetadata serverMetadata =  3;
+  ServerMetadata serverMetadata =  4;
 }
