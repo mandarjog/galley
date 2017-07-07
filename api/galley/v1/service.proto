@@ -96,6 +96,9 @@ message CreateFileRequest {
   bytes contents = 2;
 
   ContentType content_type = 3;
+
+  // client supplied metadata.
+  Metadata metadata = 4;
 }
 
 message UpdateFileRequest {
@@ -105,9 +108,12 @@ message UpdateFileRequest {
 
   ContentType content_type = 3;
 
+  // client supplied metadata.
+  Metadata metadata = 4;
+
   // Revision is used to avoid blind writes.
   // The default (revision == 0) means allow blind writes.
-  int64 revision = 4;
+  int64 revision = 5;
 }
 
 message ListFilesResponse{
@@ -154,7 +160,17 @@ message File{
   // Contents are modified by Galley. A roundtrip may not yeild the same results.
   bytes contents = 2;
 
+  // client supplied metadata.
+  Metadata metadata = 3;
+
   // revision of the repository, the last time file was updated.
   // assigned by the server.
-  int64 revision = 3;
+  int64 revision = 4;
+}
+
+// Metadata is client side meta data.
+// It is not interpreted by Galley.
+message Metadata {
+  // arbitrary labels.
+  map<string, string> labels = 1;
 }
