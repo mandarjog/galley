@@ -1,0 +1,176 @@
+// Copyright 2017 Istio Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.galley.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+// Galley uses a hierarchical resource model.
+//
+// Directories are organizational units that can be protected by ACLs.
+// ACLs are enforced and managed externally.
+//
+// Every directory contains a mapping that maps its subdirectories
+// to a subdomain. The subdomains are expressed in reverse dns notation
+// like java package names. ex: com.google
+// subdomains define a scope that the configuration cannot exceed.
+//
+// A directory has one or more config files with a .cfg extension.
+// Galley understands the mapping between config "types" and the components
+// that process them.
+// A directory exists implictly because there is a file in it.
+service Galley {
+
+  // Get contents of a file.
+  rpc GetFile(GetFileRequest) returns (File) {
+    option (google.api.http) = {
+      get: "/v1/{path=**}"
+    };
+  };
+
+  // Delete a config file.
+  // A delete operation may fail validation due to referential integrity checks.
+  // google.rpc.Status.details contains reasons for the failure as [ValidationError]s.
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/{path=**}"
+    };
+  };
+
+  // List config files.
+  // A note on http mapping.
+  // google.api.http permits the multi segment match '**' operator as the last match only, 
+  // except when :VERB is used. Here we use :list verb to disambiguate between
+  // GET on a file and GET on a directory.
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {
+    option (google.api.http) = {
+      get: "/v1/{path=**}:list"
+    };
+  }
+
+  // Create a config file.
+  // Creation of a config file may fail due to validation errors.
+  // google.rpc.Status.details contains reasons for the failure as [ValidationError]s.
+  rpc CreateFile(CreateFileRequest) returns (File) {
+    option (google.api.http) = {
+      post: "/v1/{path=**}"
+      body: "contents"
+    };
+  };
+
+  // Replace or create a config file.
+  // Updating a config file may fail due to validation errors.
+  // google.rpc.Status.details contains reasons for the failure as [ValidationError]s.
+  rpc UpdateFile(UpdateFileRequest) returns (File) {
+    option (google.api.http) = {
+      put: "/v1/{path=**}"
+      body: "contents"
+    };
+  };
+}
+
+// content type of a file when it is sent by the client.
+enum ContentType{
+  UNKNOWN = 0;
+  JSON = 1;
+  YAML = 2;
+  PROTO_TEXT = 3;
+}
+
+message CreateFileRequest {
+  string path = 1;
+
+  bytes contents = 2;
+
+  ContentType content_type = 3;
+
+  // client supplied metadata.
+  Metadata metadata = 4;
+}
+
+message UpdateFileRequest {
+  string path = 1;
+
+  bytes contents = 2;
+
+  ContentType content_type = 3;
+
+  // client supplied metadata.
+  Metadata metadata = 4;
+
+  // Revision is used to avoid blind writes.
+  // The default (revision == 0) means allow blind writes.
+  int64 revision = 5;
+}
+
+message ListFilesResponse{
+  // if include_contents is specified, this includes file contents.
+  repeated File entries = 1;
+
+  // If next_page_token is not empty, this is a paged result.
+  // use this value in the next request.
+  string next_page_token = 2;
+}
+
+message ListFilesRequest{
+  // Path of the directory from root.
+  string path = 1;
+
+  // Recurse thru the directory hierarchy. 
+  bool recurse = 2;
+
+  // Include [File][istio.galley.v1.File] contents along with paths.
+  bool include_contents = 3;
+
+  // Paged result, set to empty on first page.
+  string page_token = 4;
+
+  // If non zero, response should have at most these number of entries.
+  int32 max_page_size = 5;
+}
+
+message GetFileRequest{
+  // path of the config file from root.
+  string path = 1; 
+}
+
+message DeleteFileRequest{
+  // path of the config file from root.
+  string path = 1; 
+}
+
+// A view of configuration file stored at a location.
+// A file must have a *.cfg extension.
+message File{
+  string path = 1;
+
+  // Contents are modified by Galley. A roundtrip may not yeild the same results.
+  bytes contents = 2;
+
+  // client supplied metadata.
+  Metadata metadata = 3;
+
+  // revision of the repository, the last time file was updated.
+  // assigned by the server.
+  int64 revision = 4;
+}
+
+// Metadata is client side meta data.
+// It is not interpreted by Galley.
+message Metadata {
+  // arbitrary labels.
+  map<string, string> labels = 1;
+}
