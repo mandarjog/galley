@@ -18,8 +18,6 @@ package istio.galley.v1;
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 
-import "api/galley/v1/metadata.proto";
-
 // Galley uses a hierarchical resource model.
 //
 // Directories are organizational units that can be protected by ACLs.
@@ -31,23 +29,21 @@ import "api/galley/v1/metadata.proto";
 // subdomains define a scope that the configuration cannot exceed.
 //
 // A directory has one or more config files with a .cfg extension.
-// A directory is a special file without the .cfg extension and with no content.
 // Galley understands the mapping between config "types" and the components
 // that process them.
+// A directory exists implictly because there is a file in it.
 service Galley {
 
-  // Get contents of a file (or directory).
-  // Directory has no content so always returns empty.
-  // Get can be used to check the existence of a directory.
+  // Get contents of a file.
   rpc GetFile(GetFileRequest) returns (File) {
     option (google.api.http) = {
       get: "/v1/{path=**}"
     };
   };
 
-  // Delete a config file (or directory).
+  // Delete a config file.
   // A delete operation may fail validation due to referential integrity checks.
-  // google.rpc.Status.details contains reasons for the failure as ValidationErrors.
+  // google.rpc.Status.details contains reasons for the failure as [ValidationError]s.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/v1/{path=**}"
@@ -65,40 +61,57 @@ service Galley {
     };
   }
 
-  // Create a config file (or directory).
+  // Create a config file.
   // Creation of a config file may fail due to validation errors.
-  // google.rpc.Status.details contains reasons for the failure as ValidationErrors.
+  // google.rpc.Status.details contains reasons for the failure as [ValidationError]s.
   rpc CreateFile(CreateFileRequest) returns (File) {
     option (google.api.http) = {
-      post: "/v1/{file.path=**}"
-      body: "file.contents"
+      post: "/v1/{path=**}"
+      body: "contents"
     };
   };
 
-  // Update a config file (or directory).
-  // May be used to create or update a new file.
+  // Replace or create a config file.
   // Updating a config file may fail due to validation errors.
-  // google.rpc.Status.details contains reasons for the failure as ValidationErrors.
+  // google.rpc.Status.details contains reasons for the failure as [ValidationError]s.
   rpc UpdateFile(UpdateFileRequest) returns (File) {
     option (google.api.http) = {
-      put: "/v1/{file.path=**}"
-      body: "file.contents"
+      put: "/v1/{path=**}"
+      body: "contents"
     };
   };
+}
+
+// content type of a file when it is sent by the client.
+enum ContentType{
+  UNKNOWN = 0;
+  JSON = 1;
+  YAML = 2;
+  PROTO_TEXT = 3;
 }
 
 message CreateFileRequest {
-  // config file if the path refers to a file.
-  File file = 1;
+  string path = 1;
+
+  bytes contents = 2;
+
+  ContentType content_type = 3;
 }
 
 message UpdateFileRequest {
-  // config file if the path refers to a file.
-  File file = 1;
+  string path = 1;
+
+  bytes contents = 2;
+
+  ContentType content_type = 3;
+
+  // Revision is used to avoid blind writes.
+  // The default (revision == 0) means allow blind writes.
+  int64 revision = 4;
 }
 
 message ListFilesResponse{
-  // if include_data is specified, this includes the file.
+  // if include_contents is specified, this includes file contents.
   repeated File entries = 1;
 
   // If next_page_token is not empty, this is a paged result.
@@ -107,16 +120,16 @@ message ListFilesResponse{
 }
 
 message ListFilesRequest{
-  // path of the directory from root.
+  // Path of the directory from root.
   string path = 1;
 
-  // recurse thru the hierarchy. 
+  // Recurse thru the directory hierarchy. 
   bool recurse = 2;
 
-  // include file contents along with keys.
-  bool include_data = 3;
+  // Include [File][istio.galley.v1.File] contents along with paths.
+  bool include_contents = 3;
 
-  // paged result, set to empty on first page.
+  // Paged result, set to empty on first page.
   string page_token = 4;
 
   // If non zero, response should have at most these number of entries.
@@ -133,26 +146,15 @@ message DeleteFileRequest{
   string path = 1; 
 }
 
-// content type of a file when it is
-// sent by the client.
-enum ContentType{
-  JSON = 0;
-  YAML = 1;
-  PROTO_TEXT = 2;
-}
-
-// A configuration file stored at a location.
+// A view of configuration file stored at a location.
 // A file must have a *.cfg extension.
-// File also represents a directory if the name does not have a *.cfg extension.
-// A directory contains no data.
 message File{
   string path = 1;
 
-  // contents are modified by Galley, so a roundtrip may not yeild the same results.
+  // Contents are modified by Galley. A roundtrip may not yeild the same results.
   bytes contents = 2;
 
-  ContentType content_type = 3;
-
-  // metadata assigned by the server. Cannot be changed by the client.
-  ServerMetadata serverMetadata =  4;
+  // revision of the repository, the last time file was updated.
+  // assigned by the server.
+  int64 revision = 3;
 }
