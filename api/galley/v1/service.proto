@@ -157,7 +157,7 @@ message DeleteFileRequest{
 message File{
   string path = 1;
 
-  // Contents are modified by Galley. A roundtrip may not yeild the same results.
+  // Contents are modified by Galley. A roundtrip may not yeild the same result.
   string contents = 2;
 
   // client supplied metadata.
