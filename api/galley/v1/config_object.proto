@@ -23,14 +23,14 @@ import "api/galley/v1/metadata.proto";
 
 // ConfigFile is a configuration file stored at a location.
 // A file must have a *.cfg extension. 
-message ConfigFile{
+message ConfigFile {
 
   // Scope of a configuration object is defined as the limit of applicability 
   // of that object to a dns subdomain. 
-  // Myservice.mydept.acme.com or mydept.acme.com are examples of a scope.
-  // A service scope (myservice.mydept.acme.com) means that the document contains configuration
+  // Myservice.mydept.example.com or mydept.example.com are examples of a scope.
+  // A service scope (myservice.mydept.example.com) means that the document contains configuration
   // that is owned by and affects the service. Similarly one level higher scope
-  // like mydept.acme.com may affect self and any of the services contained in that subdomain.
+  // like mydept.example.com may affect self and any of the services contained in that subdomain.
   // The effect of configuration in the file must be contained within the scope.
   string scope = 1;
  
@@ -50,7 +50,7 @@ message ConfigFile{
 }
 
 // The basic atom of configuration as understood by Istio components.
-message ConfigObject{
+message ConfigObject {
   // Type of the config object.
   // metrics, route-rule are config “types”. Required.
   string type = 1;
@@ -105,6 +105,6 @@ message ConfigChange {
   // its modification revision set to the revision of deletion.
   ConfigFile value = 3;
 
-  // value before the operation was done. Optional.
+  // Value before the operation was done if one existed.
   ConfigFile prev_value = 4;
 }
