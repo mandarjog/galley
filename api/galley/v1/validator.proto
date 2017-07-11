@@ -65,12 +65,14 @@ message ValidationRequest {
 
 // ValidationResponse is the top level response message for the grpc service.
 message ValidationResponse {
+  // If validation fails status.details contains reasons for the failure as [ValidationError]s.
+  google.rpc.Status status = 1;
   oneof response_union {
     // Information about the validator such as the types it can validate.
-    ValidatorInfoResponse info_response = 1;
+    ValidatorInfoResponse info_response = 2;
 
     // A validation response.
-    ValidateConfigResponse validate_response = 2;
+    ValidateConfigResponse validate_response = 3;
   } 
 }
 
@@ -108,6 +110,4 @@ message ValidateConfigResponse {
   // state of the file after transformation.
   ConfigFile file = 1;
 
-  // If validation fails status.details contains reasons for the failure as [ValidationError]s.
-  google.rpc.Status status = 2;
 }
