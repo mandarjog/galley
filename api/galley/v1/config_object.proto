@@ -45,7 +45,8 @@ message ConfigFile {
   // ServerMetadata is not stored inside the object. Galley decorates the raw ConfigFile
   // message with server metadata before handing it back to the client.
   ServerMetadata serverMetadata =  4;
-  
+
+  // "Config" is a list of configuration objects.
   repeated ConfigObject config = 5;
 }
 
@@ -72,35 +73,33 @@ message ConfigObject {
   google.protobuf.Struct spec = 4;
 
   // processed_spec is the binary encoded protobuf.
-  // For example:
-  // If `spec` contains an expressions in text form 
-  // `processed_spec` may contain a parsed AST or an optimized expression.
-  // It is up to the component performing validation and transformation to make use of this field.
   // 
-  // This is an optimized and cached version of `spec`. 
+  // It should be used by the Validator / Transformer components to generate
+  // a preprocessed and optimized version of spec.
   bytes processed_spec = 5; 
 }
 
 // A change to the Galley config store.
-// ConfigChange is used by validators and watchers.
+// ConfigFileChange is used by validators and watchers.
 // When used with validators it is a proposed change.
 // When used with watchers it is a change notification.
-message ConfigChange {
+message ConfigFileChange {
   enum EventType {
-    PUT = 0;  // ADD and UPDATE
-    DELETE = 1;
+    UNKNOWN = 0;
+    PUT = 1;  // ADD and UPDATE
+    DELETE = 2;
   }
   // If type is a PUT, it indicates that
   // new data has been stored to the key. If type is a DELETE,
   // it indicates the key was deleted.
   EventType type = 1;
 
-  // Id of the config file that changed. It is derived from the file path which is unique.
+  // File_id is a unique Id of the config file that changed.
   // File path is not used here to ensure that other components do not rely on it.
   // File_id may be used to compare for equality but should not be otherwise interpreted.
   string file_id = 2;
 
-  // A PUT event contains current value.
+  // A PUT event contains the current value.
   // A DELETE event contains the deleted key with
   // its modification revision set to the revision of deletion.
   ConfigFile value = 3;

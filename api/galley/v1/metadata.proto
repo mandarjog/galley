@@ -21,6 +21,8 @@ message ServerMetadata {
   int64 revision = 1;
 }
 
+// Metadata is client side meta data.
+// It is not interpreted by Galley.
 message Metadata {
   // arbitrary labels.
   map<string, string> labels = 1;

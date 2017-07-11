@@ -31,6 +31,23 @@ config:
       instances:
       - $deny_source_ip
       selector: target.service == "shipping.FQDN" && source.labels["app"] != "billing"
+## Proxy rules
+  - type: route-rule
+    spec:
+      destination: billing.FQDN
+      source: shipping.FQDN
+      match:
+        httpHeaders:
+          cookie:
+            regex: "^(.*?;)?(user=test-user)(;.*)?$"
+      route:
+      - tags:
+          version: v1
+        weight: 100
+      httpFault:
+        delay:
+          percent: 5
+          fixedDelay: 2s
   - type: route-rule
     spec:
       destination: shipping.FQDN
@@ -38,7 +55,7 @@ config:
         httpHeaders:
           cookie:
             regex: "^(.*?;)?(user=test-user)(;.*)?$"
-          route:
+      route:
       - tags:
           version: v1
         weight: 90
