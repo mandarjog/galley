@@ -22,7 +22,6 @@ import "api/galley/v1/metadata.proto";
 // This file defines the file format used by the Galley file system api.
 
 // ConfigFile is a configuration file stored at a location.
-// A file must have a *.cfg extension. 
 message ConfigFile {
 
   // Scope of a configuration object is defined as the limit of applicability 
@@ -35,7 +34,8 @@ message ConfigFile {
   string scope = 1;
  
   // Name of the config file.
-  // (scope, name) is unique.
+  // A file must have a *.cfg extension.
+  // The tuple (scope, name) must be unique.
   string name = 2;
   
   // metadata associated with the file. Optional.
@@ -52,17 +52,16 @@ message ConfigFile {
 
 // The basic atom of configuration as understood by Istio components.
 message ConfigObject {
-  // Type of the config object.
-  // metrics, route-rule are config “types”. Required.
-  string type = 1;
-
   // Name of the object. Optional but recommended.
   // The granularity of the top level config objects should be such that
   // users are not forced to name objects unnecessarily.
-  // For example route-rules could be a top level object
-  // that is repeated route-rule.
-  // If name is specified then (type, name) must be unique within a ConfigFile.
-  string name = 2;
+  // For example route-rules could be a top level object that is 'repeated route-rule'.
+  // If name is specified then the tuple (type, name) must be unique within a ConfigFile.
+  string name = 1;
+
+  // Type of the config object.
+  // metrics, route-rule are config “types”. Required.
+  string type = 2;
 
   // Metadata associated with the object. Optional.
   Metadata metadata = 3;
@@ -76,7 +75,14 @@ message ConfigObject {
   // 
   // It should be used by the Validator / Transformer components to generate
   // a preprocessed and optimized version of spec.
-  bytes processed_spec = 5; 
+  bytes processed_spec = 5;
+
+  // Schema_id denotes the full name of the proto schema specified by the 'type'.
+  // For example: route-rule corresponds to istio.proxy.v1.config.RouteRule.
+  // schema_id is returned by the Validator / Transformer and it is stored with the object.
+  // If a proto changes in a backwards incompatible way, it must get a new schema_id.
+  // Schema_id may contain sematic version information.
+  string schema_id = 6;
 }
 
 // A change to the Galley config store.
@@ -99,11 +105,10 @@ message ConfigFileChange {
   // File_id may be used to compare for equality but should not be otherwise interpreted.
   string file_id = 2;
 
-  // A PUT event contains the current value.
-  // A DELETE event contains the deleted key with
-  // its modification revision set to the revision of deletion.
-  ConfigFile value = 3;
+  // New_file is the file *after* the operation completes.
+  // After a DELETE operation new_file.config will not be set.
+  ConfigFile new_file = 3;
 
-  // Value before the operation was done if one existed.
-  ConfigFile prev_value = 4;
+  // Old_file is the file before the operation begins, if one existed at that location.
+  ConfigFile old_file = 4;
 }

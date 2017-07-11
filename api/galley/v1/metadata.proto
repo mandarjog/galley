@@ -16,8 +16,8 @@ syntax = "proto3";
 package istio.galley.v1;
 
 message ServerMetadata {
-  // revision of the store, last time the File was updated.
-  // assigned by the server.
+  // Revision is the store revision after the object was last updated.
+  // Every update to the store produces a new revision.
   int64 revision = 1;
 }
 
