@@ -16,9 +16,12 @@ syntax = "proto3";
 package istio.galley.v1;
 
 message ServerMetadata {
+  // Path of the object in the store.
+  string path = 1;
+
   // Revision is the store revision after the object was last updated.
   // Every update to the store produces a new revision.
-  int64 revision = 1;
+  int64 revision = 2;
 }
 
 // Metadata is client side meta data.
