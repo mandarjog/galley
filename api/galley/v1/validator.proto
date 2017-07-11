@@ -1,0 +1,113 @@
+// Copyright 2017 Istio Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.galley.v1;
+
+import "google/api/annotations.proto";
+import "google/rpc/status.proto";
+
+import "api/galley/v1/config_object.proto";
+
+// ValidatorAndTransformer service validates objects before they are committed to storage.
+// Galley maintains the mapping state from object types to validators using a grpc stream. 
+// A single validator may validate many types.
+// For example MixerValidator service should validate all Mixer resources.
+service ValidatorAndTransformer {
+
+  // Validate the resource and convert it to typed proto if applicable
+  // Object.spec should be converted to an appropriate proto representation.
+  // Every attempt should be made to do a deep validation.
+  // If full validation requires referential integrity checks, this service should use the
+  // GalleyWatch Service to maintain current view of the configuration.
+  //
+  // For example a Mixer rule consists of a selector expression and a named handler amongst other things. 
+  // Mixer validator should check 
+  // 1. expression syntax is valid
+  // 2. expression uses known attributes
+  // 3. Rule refers to a known handler
+  // 4. Any other semantic check that is required for full validation.
+  //
+  // It should convert the untyped proto into a typed proto and return 
+  // binary encoding of it in ConfigObject.processed_spec. It should also set
+  // [ConfigObject.schema_id] appropriately.
+  // 
+  // On validation failure google.rpc.Status.details contains reasons for the failure as [ValidationError]s.
+  rpc ValidateAndTransform(stream ValidationRequest) returns (stream ValidationResponse) {
+    option (google.api.http) = {
+      post: "/resources/v1:validate"
+      body: "*"
+    };
+  };
+};
+
+// ValidationRequest is the top level request message for the grpc service.
+message ValidationRequest {
+  oneof request_union {
+    // Request for information about the validator such as the types it can validate.
+    ValidatorInfoRequest info_request = 1;
+
+    // A validation request.
+    ValidateConfigRequest validate_request = 2;
+  }
+}
+
+// ValidationResponse is the top level response message for the grpc service.
+message ValidationResponse {
+  oneof response_union {
+    // Information about the validator such as the types it can validate.
+    ValidatorInfoResponse info_response = 1;
+
+    // A validation response.
+    ValidateConfigResponse validate_response = 2;
+  } 
+}
+
+// ValidatorInfoRequest seeks information about the validator.
+// The first request Galley sends to the validator after the stream is established
+// must be an info request. Validator must respond with object types it can validate.
+message ValidatorInfoRequest {
+}
+
+// ValidatorInfoResponse is the reply to ValidatorInfoRequest.
+// There must be exactly one response to the info request.
+message ValidatorInfoResponse {
+
+  // Name of the validator.
+  // Example: MixerValidator, PilotValidator, ...
+  string name = 1;
+
+  // "Types" specify the object types that the validator can validate.
+  repeated string types = 2;
+}
+
+// ValidateConfigRequest is the streaming request for config validation.
+message ValidateConfigRequest {
+  // Validator must ensure that the configuration in the file
+  // only pertains to file.scope.
+  ConfigFileChange validation = 1;
+
+  // Objects should be validated against this revision of the repository.
+  // If the validator or the object is agnostic to repository versions, this can be ignored.
+  // This is useful for referential integrity checking. 
+  int64 validation_revision = 2;
+}
+
+message ValidateConfigResponse {
+  // state of the file after transformation.
+  ConfigFile file = 1;
+
+  // If validation fails status.details contains reasons for the failure as [ValidationError]s.
+  google.rpc.Status status = 2;
+}
