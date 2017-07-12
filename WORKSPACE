@@ -20,12 +20,21 @@ load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
 
 proto_repositories()
 
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
 load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
 
 cpp_proto_repositories()
 
-gogo_proto_repositories()
+new_go_repository(
+    name = "org_golang_x_net",
+    commit = "fe686d45ea04bc1bd4eff6a52865ce8757320325",  # Jun 18, 2017 (no release)
+    importpath = "golang.org/x/net",
+)
+
+new_go_repository(
+    name = "org_golang_google_grpc",
+    commit = "d2e1b51f33ff8c5e4a15560ff049d200e83726c5",  # Apr 18, 2017 (v1.3.0)
+    importpath = "google.golang.org/grpc",
+)
 
 new_go_repository(
     name = "org_golang_x_net",
@@ -68,12 +77,6 @@ new_go_repository(
 )
 
 new_go_repository(
-    name = "com_github_geeknoid_gogo_protobuf",
-    commit = "210910de191e1cdc05d0b6881c575d9a77e2526f",  # May 1, 2017 (no releases)
-    importpath = "github.com/geeknoid/protobuf",
-)
-
-new_go_repository(
     name = "in_gopkg_yaml_v2",
     commit = "14227de293ca979cf205cd88769fe71ed96a97e2",  # Jan 24, 2017 (no releases)
     importpath = "gopkg.in/yaml.v2",
@@ -81,9 +84,13 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_golang_protobuf",
-    commit = "8ee79997227bf9b34611aee7946ae64735e6fd93",  # Nov 16, 2016 (no releases)
+    commit = "e325f446bebc2998605911c0a2650d9920361d4a",  # Jun 13, 2017 (no releases)
     importpath = "github.com/golang/protobuf",
 )
+
+load("@org_pubref_rules_protobuf//grpc_gateway:rules.bzl", "grpc_gateway_proto_repositories")
+
+grpc_gateway_proto_repositories()
 
 GOOGLEAPIS_BUILD_FILE = """
 package(default_visibility = ["//visibility:public"])
@@ -91,42 +98,14 @@ package(default_visibility = ["//visibility:public"])
 load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
 go_prefix("github.com/googleapis/googleapis")
 
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
+load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
 
-gogoslick_proto_library(
-    name = "google/rpc",
-    protos = [
-        "google/rpc/code.proto",
-        "google/rpc/error_details.proto",
-        "google/rpc/status.proto",
+filegroup(
+    name = "annotations_proto",
+    srcs = [
+        "google/api/annotations.proto",
+        "google/api/http.proto",
     ],
-    importmap = {
-        "google/protobuf/any.proto": "github.com/gogo/protobuf/types",
-        "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
-    },
-    imports = [
-        "../../external/com_github_google_protobuf/src",
-    ],
-    inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
-    ],
-    deps = [
-        "@com_github_gogo_protobuf//types:go_default_library",
-    ],
-    verbose = 0,
-)
-
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cc_proto_library")
-
-cc_proto_library(
-    name = "cc_status_proto",
-    protos = [
-        "google/rpc/status.proto",
-    ],
-    imports = [
-        "../../external/com_github_google_protobuf/src",
-    ],
-    verbose = 0,
 )
 
 filegroup(
@@ -406,6 +385,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "org_golang_x_net",
+    commit = "feeb485667d1fdabe727840fe00adc22431bc86e",  # May 2, 2017 (no releases)
+    importpath = "golang.org/x/net",
+)
+
+new_go_repository(
     name = "org_golang_x_text",
     build_file_name = "BUILD.bazel",
     commit = "f4b4367115ec2de254587813edaa901bc1c723a8",  # Mar 31, 2017 (no releases)
@@ -476,6 +461,16 @@ new_go_repository(
     name = "com_github_coreos_etcd",
     commit = "117a83c1bf04880f3a5d9ca07c5c6153fa17c161",  # Jun 20, 2017 (no release)
     importpath = "github.com/coreos/etcd",
+)
+
+# This go repository is actually not necessary to build the binary.
+# But otherwise bazel_to_go.py can't create the correct vendor link for this repository,
+# which leads to wrong lint errors.
+# TODO: fix bazel_to_go.py and remove this.
+new_go_repository(
+    name = "com_github_grpc_ecosystem_grpc_gateway",
+    commit = "a5c7982c02e20b0d22f1f50ff20fbb85aa30433a",  # Jun 23, 2017 (no release)
+    importpath = "github.com/grpc-ecosystem/grpc-gateway",
 )
 
 ##
