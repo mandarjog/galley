@@ -24,7 +24,8 @@ import "api/galley/v1/config_object.proto";
 service Watcher {
   // Watch watches for events occurring in Galley.
   // A watch is created by creating a watch stream.
-  // The stream begins with the current state of the subtree.
+  // The stream may begin with the current state of the subtree
+  // if include_initial_state=true.
   rpc Watch(WatchRequest) returns (stream WatchResponse) {
     option (google.api.http) = {
       post: "/events/v1:watch"
