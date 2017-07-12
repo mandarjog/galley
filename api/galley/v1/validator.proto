@@ -29,7 +29,7 @@ import "api/galley/v1/config_object.proto";
 //
 // Galley collects responses from all validators and
 // 1. Signals UnkownType error if a ConfigObject type was left unvalidated.
-// 2. Signals error if validators validated the same object in conflicting ways.
+// 2. Signals error if validators transformed the same object in conflicting ways.
 // 3. On a successful merge, Galley commits the [ConfigFile] to storage.
 //
 // The ValidatorAndTransformer service does the following.
