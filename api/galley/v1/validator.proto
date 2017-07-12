@@ -16,18 +16,31 @@ syntax = "proto3";
 package istio.galley.v1;
 
 import "google/api/annotations.proto";
-import "google/rpc/status.proto";
 
 import "api/galley/v1/config_object.proto";
 
-// ValidatorAndTransformer service validates objects before they are committed to storage.
-// Galley maintains the mapping state from object types to validators using a grpc stream. 
+// ValidatorAndTransformer service.
+//
+// Galley uses the ValidatorAndTransformer service to validate and transform incoming
+// configuration changes. Galley knows about a set of validator services through configuration.
+// On an incoming config change, Galley broadcasts the change to all available validators.
+// A validator must validate and transform all ConfigObject types it can process.
+// A validator must not modify other ConfigObjects in the ConfigFile.
+//
+// Galley collects responses from all validators and
+// 1. Signals UnkownType error if a ConfigObject type was left unvalidated.
+// 2. Signals error if validators validated the same object in conflicting ways.
+// 3. On a successful merge, Galley commits the [ConfigFile] to storage.
+//
+// The ValidatorAndTransformer service does the following.
+// 1. Validates [ConfigObject] types before they are committed to storage.
+// 2. Trasforms [ConfigObject.spec] into [ConfigObject.processed_spec]
 // A single validator may validate many types.
-// For example MixerValidator service should validate all Mixer resources.
+// For example MixerValidator service may validate all Mixer resources.
 service ValidatorAndTransformer {
 
-  // Validate the resource and convert it to typed proto if applicable
-  // Object.spec should be converted to an appropriate proto representation.
+  // ValidateAndTransform ConfigFile.
+  //
   // Every attempt should be made to do a deep validation.
   // If full validation requires referential integrity checks, this service should use the
   // GalleyWatch Service to maintain current view of the configuration.
@@ -39,12 +52,12 @@ service ValidatorAndTransformer {
   // 3. Rule refers to a known handler
   // 4. Any other semantic check that is required for full validation.
   //
-  // It should convert the untyped proto into a typed proto and return 
-  // binary encoding of it in ConfigObject.processed_spec. It should also set
-  // [ConfigObject.schema_id] appropriately.
+  // It should convert the untyped proto [ConfigObject.spec] into a typed proto
+  // and return binary encoding of it in ConfigObject.processed_spec.
+  // It should also set [ConfigObject.schema_id] appropriately. Check [ConfigObject.schema_id] for details.
   // 
   // On validation failure google.rpc.Status.details contains reasons for the failure as [ValidationError]s.
-  rpc ValidateAndTransform(stream ValidationRequest) returns (stream ValidationResponse) {
+  rpc ValidateAndTransform(ValidationRequest) returns (ValidationResponse) {
     option (google.api.http) = {
       post: "/resources/v1:validate"
       body: "*"
@@ -52,62 +65,19 @@ service ValidatorAndTransformer {
   };
 };
 
-// ValidationRequest is the top level request message for the grpc service.
+// ValidationRequest is the request for config validation.
 message ValidationRequest {
-  oneof request_union {
-    // Request for information about the validator such as the types it can validate.
-    ValidatorInfoRequest info_request = 1;
-
-    // A validation request.
-    ValidateConfigRequest validate_request = 2;
-  }
-}
-
-// ValidationResponse is the top level response message for the grpc service.
-message ValidationResponse {
-  // If validation fails status.details contains reasons for the failure as [ValidationError]s.
-  google.rpc.Status status = 1;
-  oneof response_union {
-    // Information about the validator such as the types it can validate.
-    ValidatorInfoResponse info_response = 2;
-
-    // A validation response.
-    ValidateConfigResponse validate_response = 3;
-  } 
-}
-
-// ValidatorInfoRequest seeks information about the validator.
-// The first request Galley sends to the validator after the stream is established
-// must be an info request. Validator must respond with object types it can validate.
-message ValidatorInfoRequest {
-}
-
-// ValidatorInfoResponse is the reply to ValidatorInfoRequest.
-// There must be exactly one response to the info request.
-message ValidatorInfoResponse {
-
-  // Name of the validator.
-  // Example: MixerValidator, PilotValidator, ...
-  string name = 1;
-
-  // "Types" specify the object types that the validator can validate.
-  repeated string types = 2;
-}
-
-// ValidateConfigRequest is the streaming request for config validation.
-message ValidateConfigRequest {
-  // Validator must ensure that the configuration in the file
-  // only pertains to file.scope.
+  // Validator must ensure that the configuration in the file does not
+  // exceed ConfigFile.scope.
   ConfigFileChange validation = 1;
 
   // Objects should be validated against this revision of the repository.
-  // If the validator or the object is agnostic to repository versions, this can be ignored.
-  // This is useful for referential integrity checking. 
+  // Stateless validators may ignore this field.
+  // For example, validation_revision is useful for referential integrity checks. 
   int64 validation_revision = 2;
 }
 
-message ValidateConfigResponse {
+message ValidationResponse {
   // state of the file after transformation.
   ConfigFile file = 1;
-
 }
